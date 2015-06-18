@@ -1,0 +1,141 @@
+---
+title: "Regression project"
+author: "Deepthi Murthy"
+date: "June 17, 2015"
+output: pdf_document
+---
+
+## Executive summary
+
+This brief report summarizes my findings on the impact of transmission type on fuel economy. Using a sample of 32 cars from a 1974 Motor Trends magazine, I find that there is not enough evidence to suggest that the type of transmission has a significant impact on fuel economy. While the mean number of miles per gallon is quite different between the manual and automatic transmission cars, this apparent difference seems to vanish after accoutning for other factors.
+
+## The data
+
+```{r load, echo=FALSE}
+
+## Load the data, make transmission type a factor
+data(mtcars)
+mtcars$am <- factor(mtcars$am, levels=c(0, 1), labels=c('Automatic', 'Manual'))
+mtcars$vs <- factor(mtcars$vs, levels=c(0, 1), labels=c('V', 'S'))
+
+means <- round(tapply(mtcars$mpg, mtcars$am, mean), 2)
+sds <- round(tapply(mtcars$mpg, mtcars$am, sd), 2)
+
+n <- dim(mtcars[1])
+n.auto <- sum(mtcars$am == 'Automatic')
+n.man <- sum(mtcars$am == 'Manual')
+```
+
+Our dataset contains data on `r n[1]` different cars. The variables include miles per gallon, number of cylinders, displacement, gross horsepower, rear axle ratio, weight (lb/1000), quarter mile time, engine type, transmission type, number of forward gears, and the number of carburetors. 
+
+Highlighting our variables of interest, there are `r n.auto` cars with automatic transmissions. They have a mean MPG of `r means[1]` with a standard deviation of `r sds[1]`. There are `r n.man` cars with manual transmissions. They have a mean MPG of `r means[2]` with a standard deviation of `r sds[2]`.
+
+On first glance, then, it appears that cars with a manual transmission are more fuel efficient. However, that may not be the cause; it is possible that the cars with a manual transmission happen to share some other characteristics. 
+
+Indeed, many of the possible covariates are highly correlated with each other; see figure 1 in the appendix for pairwise scatter plots. Further, many indicate a significant correlation with the type of transmission. There does not appear to be any cars that would be considered outliers in any of the plots.
+
+## Models
+
+```{r models, echo=FALSE}
+model.1 <- lm(mpg ~ ., mtcars)
+model.2 <- lm(mpg ~ am + wt, mtcars)
+model.3 <- lm(mpg ~ am + wt + vs, mtcars)
+model.4 <- lm(mpg ~ am + wt + vs + cyl, mtcars)
+```
+
+The highly correlated covariates make it difficult to identify an accurate model. Figure 2 contains the results of a regression model that includes all covariates in the set. Many of the covariates appear to have small effects other than weight and transmission type. This model estimates an increased fuel economy of 2.52 miles per gallon for manual transmissions, though the result is not statistically significant. Further, including all of the covariates inflates the variance greatly as seen by the variance inflaction factors, so simplifying the model makes sense. 
+
+The two covariates that appear to have the largest impact on fuel economy are the type of transmission and the weight of the car. Common sense reasoning backs up these being important factors to consider, so I'll use these variables for the next model. 
+
+```{r echo=FALSE, fig.height=3}
+summary(model.2)$coef
+```
+
+Weight, as expected, has a signficant, negative impact - an estimated drop of 5.35 miles per gallon for every additional 1,000 pounds. However, more interestingly, this model does not provide evidence that the transmission type has a meaningful effect on fuel economy. The estimate of the coefficient is near zero and the p-value is near one.
+
+Two further models that expand the previous model are included - one that includes engine type, and one that includes engine type and the number of cylinders. Both models support the notion that there is not enough evidence to claim that transmission type has a significant effect on fuel economy.
+
+```{r echo=FALSE, fig.height=3}
+summary(model.3)$coef
+summary(model.4)$coef
+```
+
+Each of the model's residuals can be assumed to normally distributed using the Shapiro test at the 5% level - details are in the appendix. Thus using an ANOVA test to compare these models, the likelihood ratios support including these additional covariates.
+
+```{r echo=FALSE}
+anova(model.2, model.3, model.4)
+```
+
+The inclusion of additional covariates results in minor changes in the coefficients, but two points seem to hold true. One, the impact of transmission type remains not statistically significant. And secondly, though the details are not included, likelihood ratio tests do not support the addition of too many covariates.
+
+## Conclusion
+
+Although the mean fuel economies of manual and automatic tranmissions are significantly different, the notion that there actually is a difference does not hold up to a more thorough analysis. It seems that, accounting for other factors that could influence the fuel economy of a car, that transmission type does not have much of an impact.
+
+# Appendix
+
+### Figure 1: Pairwise Scatterplots
+
+The red dots represent maual transmissions, and the black dots represent automatic transmissions.
+
+```{r pairs, echo=FALSE, fig.width=7, fig.height=7}
+pairs(mtcars, panel=panel.smooth, main='Cars data', 
+      col=mtcars$am, pch=19)
+```
+
+### Figure 2: Model 1 - All Covariates
+
+```{r basic, echo=FALSE}
+library(car)
+summary(model.1)$coef
+vif(model.1)
+```
+
+### Figure 3: Model 2 - Weight and Transmission Type
+
+#### Residual plot
+```{r echo=FALSE, fig.height=3}
+plot(model.2, which=1)
+```
+
+#### Shapiro test of residual normality
+```{r echo=FALSE, fig.height=3}
+shapiro.test(model.2$residuals)
+```
+
+#### Variance inflation factors
+```{r echo=FALSE}
+vif(model.2)
+```
+
+### Figure 4: Model 3 - Weight, Transmission, and Engine
+
+```{r echo=FALSE, fig.height=3}
+plot(model.3, which=1)
+```
+
+#### Shapiro test of residual normality
+```{r echo=FALSE, fig.height=3}
+shapiro.test(model.3$residuals)
+```
+
+#### Variance inflation factors
+```{r echo=FALSE}
+vif(model.3)
+```
+
+### Figure 5: Model 4 - Weight, Transmission, Engine, and Cylinders
+
+```{r echo=FALSE, fig.height=3}
+plot(model.4, which=1)
+```
+
+#### Shapiro test of residual normality
+```{r echo=FALSE, fig.height=3}
+shapiro.test(model.4$residuals)
+```
+
+#### Variance inflation factors
+```{r echo=FALSE}
+vif(model.4)
+```
